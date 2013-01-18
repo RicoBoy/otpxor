@@ -1,11 +1,13 @@
 // OtpXor.cpp : Defines the entry point for the console application.
 //
 
-#include "stdafx.h"
+#include <stdio.h>
+#include <limits.h>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <algorithm>
+
 using namespace std;
 
 #define WINSIZE 256
@@ -77,7 +79,7 @@ int main(int argc, char* argv[])
 	switch(act){
 	case ACT_HELP:
 	{
-		cout<<"CrashDemons' XorScan v2.9.1   -  (c) 2013"<<endl
+		cout<<"CrashDemons' XorScan v2.9.2   -  (c) 2013"<<endl
 		<<"USAGE: otpxor.exe <command> <parameters>"<<endl
 		<<"Commands:"<<endl
 		<<" h - help"<<endl
