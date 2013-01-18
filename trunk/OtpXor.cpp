@@ -1,8 +1,8 @@
 // OtpXor.cpp : Defines the entry point for the console application.
 //
 
-#include <stdio.h>
-#include <limits.h>
+#include <cstdio>
+#include <climits>
 #include <iostream>
 #include <sstream>
 #include <string>
