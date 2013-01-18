@@ -77,18 +77,21 @@ int main(int argc, char* argv[])
 	switch(act){
 	case ACT_HELP:
 	{
-		cout<<"CrashDemons' XorScan v2.9   -  (c) 2012"<<endl;
-		cout<<"USAGE: otpxor.exe <command> <parameters>"<<endl;
-		cout<<"Commands:"<<endl;
-		cout<<" h - help"<<endl;
-		cout<<" e - extract (parameters: keyfile, messagefile, offset, outputfile)"<<endl;
-		cout<<" s - scan (parameters: keyfile messagefile)"<<endl;
-		cout<<" g - scan + gzip detection (parameters: keyfile messagefile)"<<endl;
-		cout<<"Examples: "<<endl;
-		cout<<" OtpXor.exe e elpaso.bin blackotp18009.bin 1930 test.out"<<endl;
-		cout<<" - XOR's blackotp18009.bin against elpaso.bin using offset 1930, and saves to test.out"<<endl;
-		cout<<" OtpXor.exe s elpaso.bin blackotp18009.bin"<<endl;
-		cout<<" - Searches elpaso.bin for a XOR sliding-window-scan result that is readable."<<endl;
+		cout<<"CrashDemons' XorScan v2.9.1   -  (c) 2013"<<endl
+		<<"USAGE: otpxor.exe <command> <parameters>"<<endl
+		<<"Commands:"<<endl
+		<<" h - help"<<endl
+		<<" e - extract (parameters: keyfile, messagefile, offset, outputfile)"<<endl
+		<<" s - scan (parameters: keyfile messagefile)"<<endl
+		<<" g - scan + gzip detection (parameters: keyfile messagefile)"<<endl
+		<<"Examples: "<<endl
+		<<" OtpXor.exe e elpaso.bin blackotp18009.bin 1930 test.out"<<endl
+		<<" - XOR's blackotp18009.bin against elpaso.bin using offset 1930, and saves to test.out"<<endl
+		<<" OtpXor.exe s elpaso.bin blackotp18009.bin"<<endl
+		<<" - Searches elpaso.bin for a XOR sliding-window-scan result that is readable."<<endl
+		<<"Notes:"<<endl
+		<<" This program expects raw byte contents (aka \"binary data\") in input files."<<endl
+		<<" - It does not understand Hex (ff023b...) or Binary (110100...) or other cleartext."<<endl;
 		break;
 	}
 	case ACT_EXTR:
