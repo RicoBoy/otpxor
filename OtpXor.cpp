@@ -7,58 +7,18 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
-
 using namespace std;
 
-#define WINSIZE 256
-#define TOLSIZE 180
-#define TOLRATIO 1//0.703125
-//#define GZIP_TEST 1
-//#define MINIMAL 1
 
+#include "OtpXor.h"
 
-#define Q(x) #x
-#define QQ(x) Q(x)
-#define OPER(a,b) a^b
-#define QOPER QQ(OPER(a,b))
-
-
-#pragma warning( disable : 4996 ) // disable fopen_s() warning.
-#ifdef MINIMAL
-stringstream nullcout;
-#define CONSOLE nullcout
-#else
-#define CONSOLE cout
-#endif
-#ifdef GZIP_TEST
-#define MINWINDOWCHK && j>9
-#else
-#define MINWINDOWCHK 
-#endif
-
-
-inline bool isreadable(unsigned char x){ if( (x>=0x20 && x<=0x7E) || x=='\n' || x==0x0a || x==0x09 || x==0xCC || x==0xDD || x==0xc0 || x==0xE1 || x==0xA5) return true; return false; }
+inline bool isreadable(unsigned char x){ if( (x>=0x20 && x<=0x7E) || x=='\n' || x==0x0a || x==0x09) return true; return false; }
 inline bool isprintable(unsigned char x){ if (x>=0x20 && x<=0x7E) return true; return false; }
-bool isWindowGzip(char* win, size_t msgsize,size_t iBin);
-string getWindowAt(char* msg, char* bin, size_t msgsize, size_t i, size_t length=INT_MAX);
-string safeWindow(char* msg, size_t msgsize);
 inline string itos(int i){ stringstream ss; ss<<i; return ss.str(); }
-#define stoi(s) atoi((s).c_str())
 inline size_t fsize(const string& filename){ size_t z=0; FILE* f=fopen(filename.c_str(),"rb"); fseek(f,0,SEEK_END); z=ftell(f); rewind(f); fclose(f); return z; }
 bool fexists(const string& filename){ FILE* f=fopen(filename.c_str(),"r"); if(f==NULL) return false; fclose(f); return true; }
-char* fload(const string& filename, size_t& filesize);
-
-#define SWAPT(t,x,y) {t swptmp=x;x=y;y=swptmp;}
 
 
-
-
-enum PROG_ACT{
-	ACT_NONE,
-	ACT_HELP,
-	ACT_SCAN,
-	ACT_EXTR
-};
 
 
 int main(int argc, char* argv[])
@@ -71,6 +31,7 @@ int main(int argc, char* argv[])
 		switch(argv[1][0]){
 		case 'h': act=ACT_HELP; break;//h
 		case 'e': act=ACT_EXTR; break;//e keyfile messagefile offset outputfile
+		case 'a': act=ACT_EXAC; break;//a keyfile messagefile offset outputfile
 		case 's': act=ACT_SCAN; break;//s keyfile messagefile
 		case 'g': act=ACT_SCAN; gzip_test=true; break;//same as 's'
 		}
@@ -79,11 +40,12 @@ int main(int argc, char* argv[])
 	switch(act){
 	case ACT_HELP:
 	{
-		cout<<"CrashDemons' XorScan v2.9.2   -  (c) 2013"<<endl
+		cout<<"CrashDemons' XorScan v3.0.0   -  (c) 2013"<<endl
 		<<"USAGE: otpxor.exe <command> <parameters>"<<endl
 		<<"Commands:"<<endl
 		<<" h - help"<<endl
 		<<" e - extract (parameters: keyfile, messagefile, offset, outputfile)"<<endl
+		<<" a - extract + AutoCorrect (parameters: keyfile, messagefile, offset, outputfile)"<<endl
 		<<" s - scan (parameters: keyfile messagefile)"<<endl
 		<<" g - scan + gzip detection (parameters: keyfile messagefile)"<<endl
 		<<"Examples: "<<endl
@@ -96,6 +58,7 @@ int main(int argc, char* argv[])
 		<<" - It does not understand Hex (ff023b...) or Binary (110100...) or other cleartext."<<endl;
 		break;
 	}
+	case ACT_EXAC:
 	case ACT_EXTR:
 	case ACT_SCAN:
 	{
@@ -118,11 +81,16 @@ int main(int argc, char* argv[])
 
 
 		switch(act){
+		case ACT_EXAC
 		case ACT_EXTR://e keyfile messagefile offset outputfile
 		{
 			if(argc<6){ cout<<"Not enough parameters."<<endl; return 1; }
 			int o_offset=stoi(string(argv[4]));
-			for(size_t i=0; i<msgsize; i++) win[i]=bin[i+o_offset]^msg[i];
+
+			if(act==ACT_EXAC) extract_autocorrect(bin, msg, win, msgsize, o_offset);
+			else              extract            (bin, msg, win, msgsize, o_offset);
+
+
 			FILE* fDump=fopen(argv[5],"wb");
 			if(fDump==NULL){ cout<<"The output file could not be opened for writing. \nFile: "<<argv[5]<<endl; return 3; }
 			fwrite(win,msgsize,1,fDump);
@@ -173,6 +141,36 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
+
+int extract_count_readable(char* bin, char* msg, size_t siz, int off, size_t iStart)
+{
+	int num=0;
+	for(size_t i=iStart; i<siz; i++) if(isreadable(bin[i+off]^msg[i])) num++;
+	return num;
+}
+
+void extract_autocorrect(char* bin, char* msg, char* out, size_t siz, int off)
+{
+	for(size_t i=0; i<siz; i++){
+		out[i]=bin[i+off]^msg[i];
+		if(!isreadable(out[i])){
+			int dBest=0;
+			int nBest=0;
+			int nCurr=0;
+			for(int d=-2;d<=2;d++){
+				nCurr=extract_count_readable(bin, msg, siz, off+d, i);
+				if(nCurr>nBest){ dBest=d; nBest=nCurr; }
+			}
+			off+=dBest;
+			out[i]=bin[i+off]^msg[i];//reset current char.
+		}
+	}
+
+}
+
+
+
+void extract(char* bin, char* msg, char* out, size_t siz, int off){ for(size_t i=0; i<siz; i++) out[i]=bin[i+off]^msg[i]; }
 
 string safeWindow(char* msg, size_t msgsize)
 {

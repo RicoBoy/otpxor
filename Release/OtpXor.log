@@ -1,4 +1,8 @@
 ﻿  OtpXor.cpp
+OtpXor.cpp(120): warning C4189: 'laststep' : local variable is initialized but not referenced
+OtpXor.cpp(121): warning C4189: 'progress' : local variable is initialized but not referenced
+OtpXor.cpp(229): warning C4100: 'iBin' : unreferenced formal parameter
+OtpXor.cpp(229): warning C4100: 'msgsize' : unreferenced formal parameter
   Generating code
   Finished generating code
   OtpXor.vcxproj -> C:\Users\Crash\Desktop\otp22\otpdox\OtpXor\Release\OtpXor.exe
