@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
 
 
 		switch(act){
-		case ACT_EXAC
+		case ACT_EXAC:
 		case ACT_EXTR://e keyfile messagefile offset outputfile
 		{
 			if(argc<6){ cout<<"Not enough parameters."<<endl; return 1; }
