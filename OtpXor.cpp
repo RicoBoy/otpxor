@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
 	switch(act){
 	case ACT_HELP:
 	{
-		cout<<"CrashDemons' XorScan v3.0.0   -  (c) 2013"<<endl
+		cout<<"CrashDemons' XorScan v3.0.1   -  (c) 2013"<<endl
 		<<"USAGE: otpxor.exe <command> <parameters>"<<endl
 		<<"Commands:"<<endl
 		<<" h - help"<<endl
@@ -87,13 +87,18 @@ int main(int argc, char* argv[])
 			if(argc<6){ cout<<"Not enough parameters."<<endl; return 1; }
 			int o_offset=stoi(string(argv[4]));
 
-			if(act==ACT_EXAC) extract_autocorrect(bin, msg, win, msgsize, o_offset);
-			else              extract            (bin, msg, win, msgsize, o_offset);
+			string log="";
+			if(act==ACT_EXAC) log=extract_autocorrect(bin, msg, win, msgsize, o_offset);
+			else                  extract            (bin, msg, win, msgsize, o_offset);
 
 
-			FILE* fDump=fopen(argv[5],"wb");
+			FILE* fDump=fopen(argv[5],"wb+");
 			if(fDump==NULL){ cout<<"The output file could not be opened for writing. \nFile: "<<argv[5]<<endl; return 3; }
 			fwrite(win,msgsize,1,fDump);
+			if(log.length()>0){
+				log=" <"+log+">";
+				fwrite(log.c_str(), log.length(), 1, fDump);
+			}
 			fclose(fDump);
 			break;
 		}
@@ -142,15 +147,16 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-int extract_count_readable(char* bin, char* msg, size_t siz, int off, size_t iStart)
+int extract_count_readable(char* bin, char* msg, size_t siz, int off, size_t iStart, size_t iLimit)
 {
 	int num=0;
-	for(size_t i=iStart; i<siz; i++) if(isreadable(bin[i+off]^msg[i])) num++;
+	for(size_t i=iStart; i<siz && i<(i+iLimit); i++) if(isreadable(bin[i+off]^msg[i])) num++;
 	return num;
 }
 
-void extract_autocorrect(char* bin, char* msg, char* out, size_t siz, int off)
+string extract_autocorrect(char* bin, char* msg, char* out, size_t siz, int off)
 {
+	string log="";
 	for(size_t i=0; i<siz; i++){
 		out[i]=bin[i+off]^msg[i];
 		if(!isreadable(out[i])){
@@ -158,14 +164,17 @@ void extract_autocorrect(char* bin, char* msg, char* out, size_t siz, int off)
 			int nBest=0;
 			int nCurr=0;
 			for(int d=-2;d<=2;d++){
-				nCurr=extract_count_readable(bin, msg, siz, off+d, i);
+				nCurr=extract_count_readable(bin, msg, siz, off+d, i, 10);
 				if(nCurr>nBest){ dBest=d; nBest=nCurr; }
 			}
+			
+			if     (dBest<0) log+="Pos "+itos(i)+" offset" +itos(dBest)+"; ";
+			else if(dBest>0) log+="Pos "+itos(i)+" offset+"+itos(dBest)+"; ";
 			off+=dBest;
 			out[i]=bin[i+off]^msg[i];//reset current char.
 		}
 	}
-
+	return log;
 }
 
 

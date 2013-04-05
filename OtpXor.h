@@ -43,7 +43,7 @@ bool fexists(const string& filename);
 char* fload(const string& filename, size_t& filesize);
 
 void extract(char* bin, char* msg, char* out, size_t msgsize, int off);
-void extract_autocorrect(char* bin, char* msg, char* out, size_t msgsize, int off);
+string extract_autocorrect(char* bin, char* msg, char* out, size_t msgsize, int off);
 
 #define SWAPT(t,x,y) {t swptmp=x;x=y;y=swptmp;}
 
