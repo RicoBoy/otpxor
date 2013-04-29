@@ -1,12 +1,15 @@
 // OtpXor.cpp : Defines the entry point for the console application.
 //
 
+#include <cmath>
 #include <cstdio>
 #include <climits>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <list>
+#include <vector>
 using namespace std;
 
 
@@ -27,9 +30,20 @@ int main(int argc, char* argv[])
 	PROG_ACT act=ACT_HELP;
 	bool gzip_test=false;
 
+	/*
+	char* argv_test[3];
+	argv_test[0]="";
+	argv_test[1]="z";
+	argv_test[2]="C:\\Users\\Crash\\Desktop\\otpbot\\WC\\data.bin";
+	argv=argv_test;
+	argc=3;
+	*/
+
+
 	if(argc>=2){
 		switch(argv[1][0]){
 		case 'h': act=ACT_HELP; break;//h
+		case 'z': act=ACT_ANLZ; break;//z file
 		case 'e': act=ACT_EXTR; break;//e keyfile messagefile offset outputfile
 		case 'a': act=ACT_EXAC; break;//a keyfile messagefile offset outputfile
 		case 's': act=ACT_SCAN; break;//s keyfile messagefile
@@ -40,7 +54,7 @@ int main(int argc, char* argv[])
 	switch(act){
 	case ACT_HELP:
 	{
-		cout<<"CrashDemons' XorScan v3.0.1   -  (c) 2013"<<endl
+		cout<<"CrashDemons' XorScan v4.0.1   -  (c) 2013"<<endl
 		<<"USAGE: otpxor.exe <command> <parameters>"<<endl
 		<<"Commands:"<<endl
 		<<" h - help"<<endl
@@ -48,6 +62,7 @@ int main(int argc, char* argv[])
 		<<" a - extract + AutoCorrect (parameters: keyfile, messagefile, offset, outputfile)"<<endl
 		<<" s - scan (parameters: keyfile messagefile)"<<endl
 		<<" g - scan + gzip detection (parameters: keyfile messagefile)"<<endl
+		<<" z - analyze (parameters: keyfile); produces a CSV analysis of file."<<endl
 		<<"Examples: "<<endl
 		<<" OtpXor.exe e elpaso.bin blackotp18009.bin 1930 test.out"<<endl
 		<<" - XOR's blackotp18009.bin against elpaso.bin using offset 1930, and saves to test.out"<<endl
@@ -56,6 +71,17 @@ int main(int argc, char* argv[])
 		<<"Notes:"<<endl
 		<<" This program expects raw byte contents (aka \"binary data\") in input files."<<endl
 		<<" - It does not understand Hex (ff023b...) or Binary (110100...) or other cleartext."<<endl;
+		break;
+	}
+	case ACT_ANLZ:
+	{
+		if(argc<3){ cout<<"Not enough parameters."<<endl; return 1; }
+		string keyfile=argv[2];
+		size_t keysize;
+		if(!fexists(keyfile)){ cout<<"The keyfile does not exist or could not be opened.\nFiles: "<<keyfile<<endl; return 2; }
+		char* bin=fload(keyfile, keysize);
+		analyze(bin,keysize);
+		delete bin;
 		break;
 	}
 	case ACT_EXAC:
@@ -143,9 +169,74 @@ int main(int argc, char* argv[])
 		break;
 	}
 	}
-
 	return 0;
 }
+
+int sum(int* arr, int nSize){ int s=0; for(int i=0;i<nSize;i++){s+=arr[i];} return s; }
+double fsum(double* arr, int nSize){ double s=0; for(int i=0;i<nSize;i++){s+=arr[i];} return s; }
+
+void analyze_count_median(analysis_window& analysis_out, int* cnt)
+{
+	list<int> l;
+	for(int i=0;i<256;i++) l.push_back(cnt[i]);
+	l.sort();
+	vector<int> v(l.begin(), l.end());
+	if(v.size()<256) cout<<"ERROR: counts<256"<<endl;
+	analysis_out.medianLo=v[127];
+	analysis_out.medianHi=v[128];
+}
+void analyze_count_deviation(analysis_window& analysis_out, int* cnt)
+{
+	double mn=sum(cnt,256)/256.0;
+	double dev[256];
+	for(int i=0;i<256;i++){
+		dev[i]=pow(((double)cnt[i])-mn,2);
+	}
+	double var=fsum(dev,256)/256.0;//variance
+	analysis_out.deviation=sqrt(var);
+}
+void analyze_count_mode(analysis_window& analysis_out, int* cnt)
+{
+	int iMax=0;
+	int nMax=0;
+	int iMin=0;
+	int nMin=9999;
+	int n;
+	for(int i=0;i<256;i++){
+		n=cnt[i];
+		if(cnt[i]>nMax){ nMax=n; iMax=i; }
+		if(cnt[i]<nMin){ nMin=n; iMin=i; }
+	}
+	analysis_out.mode=(unsigned char)iMax;
+	analysis_out.rare=(unsigned char)iMin;
+}
+
+void analyze(char* bin,size_t siz)
+{
+	int nBytes=4096;
+	char* win=0;
+	int nWindows=siz/nBytes;
+	vector<analysis_window> analysis_windows;
+
+	for(int i=0; i<nWindows; i++){
+		int cnt[256]={0};
+		win=&(bin[i*nBytes]);//should ==(bin+i*nBytes)
+		for(int j=0;j<nBytes;j++) cnt[(unsigned char) win[j]]++;//collect char statistics.
+		analysis_window awin;
+		awin.offset=i*nBytes;
+		analyze_count_deviation(awin,cnt);
+		analyze_count_median(awin,cnt);
+		analyze_count_mode(awin,cnt);
+		analysis_windows.push_back(awin);
+	}
+	cout<<"Offset,Deviation,Mode,Rare,MedianLo,MedianHi"<<endl;
+	for(vector<analysis_window>::iterator it=analysis_windows.begin(); it!=analysis_windows.end(); it++){
+		cout<<it->offset<<","<<it->deviation<<","<<it->mode<<","
+			<<it->rare<<","<<it->medianLo<<","<<it->medianHi<<endl;
+	}
+	cout<<endl;
+}
+
 
 int extract_count_readable(char* bin, char* msg, size_t siz, int off, size_t iStart, size_t iLimit)
 {
