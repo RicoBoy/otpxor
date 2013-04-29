@@ -44,6 +44,7 @@ char* fload(const string& filename, size_t& filesize);
 
 void extract(char* bin, char* msg, char* out, size_t msgsize, int off);
 string extract_autocorrect(char* bin, char* msg, char* out, size_t msgsize, int off);
+void analyze(char* bin,size_t siz);
 
 #define SWAPT(t,x,y) {t swptmp=x;x=y;y=swptmp;}
 
@@ -56,5 +57,15 @@ enum PROG_ACT{
 	ACT_SCAN,
 	ACT_EXTR,
 	ACT_EXAC,
+	ACT_ANLZ
 };
 
+
+struct analysis_window{
+	unsigned int offset;
+	double deviation;
+	int mode;
+	int rare;
+	int medianHi;
+	int medianLo;
+};
