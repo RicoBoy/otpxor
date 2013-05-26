@@ -40,11 +40,11 @@ string getWindowAt(char* msg, char* bin, size_t msgsize, size_t i, size_t length
 string safeWindow(char* msg, size_t msgsize);
 #define stoi(s) atoi((s).c_str())
 bool fexists(const string& filename);
-char* fload(const string& filename, size_t& filesize);
+char* fload(const string& filename, size_t& filesize, size_t offset=0);
 
 void extract(char* bin, char* msg, char* out, size_t msgsize, int off);
 string extract_autocorrect(char* bin, char* msg, char* out, size_t msgsize, int off);
-void analyze(char* bin,size_t siz);
+void analyze(char* bin,size_t siz, size_t window=4096, size_t skip=1, size_t realOffset=0);
 
 #define SWAPT(t,x,y) {t swptmp=x;x=y;y=swptmp;}
 
