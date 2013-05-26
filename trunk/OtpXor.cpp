@@ -77,11 +77,28 @@ int main(int argc, char* argv[])
 	{
 		if(argc<3){ cout<<"Not enough parameters."<<endl; return 1; }
 		string keyfile=argv[2];
-		size_t keysize;
 		if(!fexists(keyfile)){ cout<<"The keyfile does not exist or could not be opened.\nFiles: "<<keyfile<<endl; return 2; }
-		char* bin=fload(keyfile, keysize);
-		analyze(bin,keysize);
-		delete bin;
+		size_t keysize=fsize(keyfile);
+
+		size_t sampsize=(keysize/5000);  if(sampsize<256) sampsize=256;
+		size_t chunksize=128*1024*1024;//128 MiB,   128*(2^20)
+		size_t chunks=(keysize/chunksize)+1;
+		
+		cout<<"Offset,Deviation,Mode,Rare,MedianLo,MedianHi"<<endl;
+		FILE* fBin=fopen(keyfile.c_str(),"rb");
+		for(size_t chunk=0;chunk<chunks;chunk++)
+		{
+			size_t offset=chunk*chunksize;  if(offset>=keysize) break;//invalid index.
+			size_t bufsize=keysize-offset;  if(bufsize>chunksize) bufsize=chunksize;
+
+			char* bin=new char[bufsize];
+			fseek(fBin,offset,SEEK_SET);
+			fread(bin,bufsize,1,fBin);
+			analyze(bin,bufsize,sampsize,3,offset);
+			delete bin;
+		}
+		fclose(fBin);
+		cout<<endl;
 		break;
 	}
 	case ACT_EXAC:
@@ -163,9 +180,9 @@ int main(int argc, char* argv[])
 			break;
 		}
 		}
-		delete win;
-		delete bin;
-		delete msg;
+		if(win!=NULL) delete win;
+		if(bin!=NULL) delete bin;
+		if(msg!=NULL) delete msg;
 		break;
 	}
 	}
@@ -211,30 +228,28 @@ void analyze_count_mode(analysis_window& analysis_out, int* cnt)
 	analysis_out.rare=(unsigned char)iMin;
 }
 
-void analyze(char* bin,size_t siz)
+void analyze(char* bin,size_t siz, size_t window, size_t skip, size_t realOffset)
 {
-	int nBytes=4096;
+	size_t nBytes=window;
 	char* win=0;
 	int nWindows=siz/nBytes;
 	vector<analysis_window> analysis_windows;
 
-	for(int i=0; i<nWindows; i++){
+	for(size_t i=0; i<nWindows; i++){
 		int cnt[256]={0};
 		win=&(bin[i*nBytes]);//should ==(bin+i*nBytes)
-		for(int j=0;j<nBytes;j++) cnt[(unsigned char) win[j]]++;//collect char statistics.
+		for(int j=0;j<nBytes;j+=skip) cnt[(unsigned char) win[j]]++;//collect char statistics.
 		analysis_window awin;
-		awin.offset=i*nBytes;
+		awin.offset=i*nBytes+realOffset;
 		analyze_count_deviation(awin,cnt);
 		analyze_count_median(awin,cnt);
 		analyze_count_mode(awin,cnt);
 		analysis_windows.push_back(awin);
 	}
-	cout<<"Offset,Deviation,Mode,Rare,MedianLo,MedianHi"<<endl;
 	for(vector<analysis_window>::iterator it=analysis_windows.begin(); it!=analysis_windows.end(); it++){
 		cout<<it->offset<<","<<it->deviation<<","<<it->mode<<","
 			<<it->rare<<","<<it->medianLo<<","<<it->medianHi<<endl;
 	}
-	cout<<endl;
 }
 
 
@@ -307,11 +322,12 @@ bool isWindowGzip(char* win, size_t msgsize,size_t iBin)
 	return false;
 }
 
-char* fload(const string& filename, size_t& filesize)
+char* fload(const string& filename, size_t& filesize, size_t offset)
 {
 	filesize=fsize(filename);
 	char* buf=new char[filesize];//HEAP
 	FILE* fBin=fopen(filename.c_str(),"rb");
+	if(offset!=0) fseek(fBin,offset,0);
 	fread(buf,filesize,1,fBin);
 	fclose(fBin);
 	return buf;
