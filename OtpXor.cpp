@@ -13,8 +13,9 @@
 using namespace std;
 
 
-#include "OtpXor.h"
 
+#include "OtpXor.h"
+bool isnumber(char x){ return (x>=0x30 && x<=0x39); }
 inline bool isreadable(unsigned char x){ if( (x>=0x20 && x<=0x7E) || x=='\n' || x==0x0a || x==0x09) return true; return false; }
 inline bool isprintable(unsigned char x){ if (x>=0x20 && x<=0x7E) return true; return false; }
 inline string itos(int i){ stringstream ss; ss<<i; return ss.str(); }
@@ -23,9 +24,199 @@ bool fexists(const string& filename){ FILE* f=fopen(filename.c_str(),"r"); if(f=
 
 
 
+/*
+int main(int argc, char* argv[])
+{
+	return OtpXor().interpretAction(argc,argv);
+}
+*/
+
+
+OtpAction::OtpAction(int argc, char** argv)
+{
+	iParams=0;
+	iFiles=0;
+	type=ACT__INVALID;
+	argc--;// 1 arg=path only
+	if(argc<1){ type=ACT__INVALID; return; }//no command/parameters
+	switch(argv[1][0]){//commands
+		case 'H': type=ACT__HELP;    break;
+		case 'A': type=ACT__ANALYZE; break;
+		case 'E': type=ACT__EXTRACT; break;
+		case 'X': type=ACT__XOR;     break;
+		case 'S': type=ACT__SCAN;    break;
+	}
+	for(size_t i=1;i<strlen(argv[1]);i++){//command options
+		switch(argv[1][i]){
+			case 'P': type=(OTP_ACT) (type|OPTION_POSITIONS);  break;
+			case 'S': type=(OTP_ACT) (type|OPTION_SIZE);       break;
+			case 'C': type=(OTP_ACT) (type|OPTION_CORRECTION); break;
+        }   
+	}
+	for(int i=2;i<=argc;i++){//parameters - we only accept filenames and integers.
+		if(iParams==8 || iFiles==8 ) break;
+		bool bNumber=true;
+		for(size_t j=0;j<strlen(argv[i]);j++) if(!isnumber(argv[i][j])){ bNumber=false; break; }
+		if(bNumber){ params[iParams]=atoi(argv[i]); iParams++; }
+		else{ files[iFiles]=string(argv[i]); iFiles++; }
+	}
+}
+
+
+OtpXor::OtpXor(){}
+int OtpXor::doAction(OtpAction act){
+	if(act.is(ACT__INVALID)) { help(); return 1; }//can't use a switch because these are bitflags
+	if(act.is(ACT__HELP)) help();
+	if(act.is(ACT__ANALYZE)) return analyze(act.files[0],act.params[1]);
+	if(act.is(ACT__EXTRACT)) {
+		if(act.is(OPTION_POSITIONS))  extract (act.files[0],act.files[1], act.params[0], act.params[1]); 
+		if(act.is(OPTION_SIZE)) extractn (act.files[0],act.files[1], act.params[0], act.params[1]);
+	}
+	if(act.is(ACT__XOR)) {
+		if(act.is(OPTION_POSITIONS)) xor(act.files[0], act.files[1], act.files[3], act.params[0], act.params[1], act.params[2], act.params[3], act.is(OPTION_CORRECTION)); 
+		if(act.is(OPTION_SIZE)) xor(act.files[0], act.files[1], act.files[3], act.params[0], act.is(OPTION_CORRECTION)); 
+	}
+	if(act.is(ACT__SCAN))  scan(act.files[0],act.files[1]);
+	return 0;
+}
+
+
+void OtpXor::help(){
+	cout<<"CrashDemons' XorScan v5.0.0   -  (c) 2013"<<endl
+		<<"USAGE: otpxor.exe <command> <parameters>"<<endl
+		<<"Commands:"<<endl
+		<<" h - help"<<endl
+		<<" e - extract (parameters: keyfile, messagefile, offset, outputfile)"<<endl
+		<<" a - extract + AutoCorrect (parameters: keyfile, messagefile, offset, outputfile)"<<endl
+		<<" s - scan (parameters: keyfile messagefile)"<<endl
+		<<" g - scan + gzip detection (parameters: keyfile messagefile)"<<endl
+		<<" z - analyze (parameters: keyfile); produces a CSV analysis of file."<<endl
+		<<"Examples: "<<endl
+		<<" OtpXor.exe e elpaso.bin blackotp18009.bin 1930 test.out"<<endl
+		<<" - XOR's blackotp18009.bin against elpaso.bin using offset 1930, and saves to test.out"<<endl
+		<<" OtpXor.exe s elpaso.bin blackotp18009.bin"<<endl
+		<<" - Searches elpaso.bin for a XOR sliding-window-scan result that is readable."<<endl
+		<<"Notes:"<<endl
+		<<" This program expects raw byte contents (aka \"binary data\") in input files."<<endl
+		<<" - It does not understand Hex (ff023b...) or Binary (110100...) or other cleartext."<<endl;
+}
+int OtpXor::analyze(string keyfile,size_t sampsize){
+		if(!fexists(keyfile)){ cout<<"The keyfile does not exist or could not be opened.\nFiles: "<<keyfile<<endl; return 2; }
+		size_t keysize=fsize(keyfile);
+
+		sampsize=MAX( DEFAULTVAL(sampsize, 0, (keysize/5000)), 256);//   no input results in keysize/5000,  but only values 256-INF are valid.
+		size_t chunksize=64*1024*1024;//64 MiB
+		size_t chunks=(keysize/chunksize)+1;
+		
+		cout<<"Offset,Deviation,Mode,Rare,MedianLo,MedianHi"<<endl;
+		FILE* fBin=fopen(keyfile.c_str(),"rb");
+		for(size_t chunk=0;chunk<chunks;chunk++)
+		{
+			size_t offset=chunk*chunksize;  if(offset>=keysize) break;//invalid index.
+			size_t bufsize=keysize-offset;  if(bufsize>chunksize) bufsize=chunksize;
+
+			char* bin=new char[bufsize];
+			fseek(fBin,offset,SEEK_SET);
+			fread(bin,bufsize,1,fBin);
+			analyze_chunk(bin,bufsize,sampsize,3,offset);
+			delete[] bin;
+		}
+		fclose(fBin);
+		cout<<endl;
+		return 0;
+}
+void OtpXor::extractn(string file, string fileOut, size_t begin, size_t num){
+	size_t filesize=fsize(file);
+	num=ATMOST(DEFAULTVAL(num,0,filesize-begin), filesize-begin);//choose the smallest between the input and the available bytes. 0 defaults to the entire rest of the file.
+	size_t maxOffset=begin+(num-1);
+	
+	size_t chunksize=64*1024*1024;
+	size_t chunks=MAX(num/chunksize,1);
+	FILE* fi=fopen(file.c_str(),"rb");
+	FILE* fo=fopen(fileOut.c_str(),"wb");
+	fseek(fi,begin,SEEK_SET);
+
+	for(size_t chunk=0; chunk<chunks; chunk++){
+			size_t offset=chunk*chunksize+begin;  if(offset>maxOffset) break;//invalid index.
+			size_t bufsize=ATMOST((maxOffset-offset)+1, chunksize);
+			char* buf=new char[bufsize];
+			fread(buf,bufsize,1,fi);
+			fwrite(buf,bufsize,1,fo);//need to verify this writes sequentially.
+			delete[] buf;
+	}
+	fclose(fi);
+	fclose(fo);
+}
+void OtpXor::xor(string file1, string file2, string fileOut, size_t begin1, size_t begin2, size_t end1, size_t end2, bool correction)
+{
+	size_t filesize1=fsize(file1);
+	size_t filesize2=fsize(file2);
+	size_t maxOffset1=filesize1-1;
+	size_t maxOffset2=filesize2-1;
+	end1=ATMOST(DEFAULTVAL(end1,0,maxOffset1),maxOffset1);
+	end2=ATMOST(DEFAULTVAL(end2,0,maxOffset2),maxOffset2);
+	begin1=ATMOST(begin1,end1);
+	begin2=ATMOST(begin2,end2);
+	size_t len=MIN( (end1-begin1)+1, (end2-begin2)+1 );
+
+	
+	size_t chunksize=32*1024*1024;
+	size_t chunks=ATLEAST(len/chunksize,1);
+
+	
+	FILE* fi1=fopen(file1.c_str(),"rb");
+	FILE* fi2=fopen(file2.c_str(),"rb");
+	FILE* fo=fopen(fileOut.c_str(),"wb");
+	fseek(fi1,begin1,SEEK_SET);
+	fseek(fi2,begin2,SEEK_SET);
+
+	for(size_t chunk=0; chunk<chunks; chunk++){
+			size_t offset1=chunk*chunksize+begin1;  if(offset1>maxOffset1) break;//invalid index.
+			size_t offset2=chunk*chunksize+begin2;  if(offset2>maxOffset2) break;//invalid index.
+			size_t bufsize=ATMOST(MIN( (maxOffset1-offset1)+1, (maxOffset2-offset2)+1), chunksize);
+
+			char* buf1=new char[bufsize];
+			char* buf2=new char[bufsize];
+			fread(buf1,bufsize,1,fi1);
+			fread(buf2,bufsize,1,fi2);
+			for(size_t i=0;i<bufsize;i++) buf2[i]=buf1[i]^buf2[i];
+			fwrite(buf2,bufsize,1,fo);
+			delete[] buf1;
+			delete[] buf2;
+	}
+	fclose(fi1);
+	fclose(fi2);
+	fclose(fo);
+}
+void OtpXor::xor(string file1, string file2, string fileOut, size_t begin1,                                          bool correction)
+{
+	int num=MIN(fsize(file1)-1,fsize(file2)-1);
+	return xor(file1,file2,fileOut,begin1, 0, num, num, correction);
+}
+
+
+
 
 int main(int argc, char* argv[])
 {
+	OtpAction actn(argc, argv);
+	cout<<actn.type<<endl;
+	cout<<actn.iFiles<<endl;
+	cout<<actn.files[0]<<endl;
+	cout<<actn.files[1]<<endl;
+	cout<<actn.files[2]<<endl;
+	cout<<actn.iParams<<endl;
+	cout<<actn.params[0]<<endl;
+	cout<<actn.params[1]<<endl;
+	cout<<actn.params[2]<<endl;
+
+
+	getchar();
+	exit(0);
+	//os.ioss=ss;
+
+
+	
 	//args: 0 is path
 	PROG_ACT act=ACT_HELP;
 	bool gzip_test=false;
@@ -228,7 +419,7 @@ void analyze_count_mode(analysis_window& analysis_out, int* cnt)
 	analysis_out.rare=(unsigned char)iMin;
 }
 
-void analyze(char* bin,size_t siz, size_t window, size_t skip, size_t realOffset)
+void analyze_chunk(char* bin,size_t siz, size_t window, size_t skip, size_t realOffset)
 {
 	size_t nBytes=window;
 	char* win=0;
