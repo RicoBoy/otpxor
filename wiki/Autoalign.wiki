@@ -50,6 +50,7 @@ For the sake of simplicity below, examples will be shown below in hexadecimal wh
 
 ==Type 2 Behavior==
 In Type 2 errors, there are more bytes in the encoded data than originally intended.
-|| *Key Data*        || 0A || 0B || 0C || 0D || 0E || 0F ||
-|| *Encoded Data*    || 0A || 0B || <font color="red">03</font> || 0C || 0D || 0E || 0F ||
+
+|| *Key Data*        || <font color="green">0A || 0B || 0C || 0D || 0E || 0F ||
+|| *Encoded Data*    || 0A || 0B || <font color="red">03</font> || <font color="orange">0C</font> || <font color="orange">0D</font> || <font color="orange">0E</font> || <font color="orange">0F</font> ||
 || *Decoded Message* || 00 || 00 || 00 || 00 || 00 || 00 ||
