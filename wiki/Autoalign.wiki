@@ -1,0 +1,55 @@
+#summary Autocorrection of decoded messages by key/encoded data position/alignment changes
+#labels Draft,Phase-Implementation,Featured
+
+= Introduction =
+   Normally, a keyfile and the encoded data are aligned so that a byte of each, sequentially, can be used to decode a message.  When there is a data missing or incorrect, using the normal sequence may lead to corruption of the output, rendering it unreadable.  Xor decoding with human-transcribed or lossy data can be a tedious task and there is a great potential for errors of this kind.
+
+   *Autoalignment* is a feature presented in OtpXor, OtpBot and WebXor where the position is adjusted between the key and the encoded data to reduce the effects of lossy data and mistranscriptions on the rest of the message.  This particular feature only applies to decoded output of ANSI text.
+
+= Error detection = 
+When a message decode is assumed to be in ANSI text, all of the byte values can be assumed to be in a certain byte value range.  This fact presents the ability to detect whether a decoded byte is error or not.
+
+= Determining the best alignment =
+Because we can detect errors for individual bytes, we can also run some limited tests to see if there are sequences of bytes near the ones we've been given that produce less errors than others.
+
+By testing single adjustments to the alignment (within tolerances) between the two data sets, when an error occurs, the alignment adjustment that presents the least errors in the remaining bytes to decode can be selected to salvage the rest of the message.
+
+See the specific "Types" sections for more detailed behavior.
+
+== In specific programs == 
+  This document discusses best behaviors for autoalignment which include manipulating the current decoding byte position in both the key and encoded data within adjustable tolerances - however related program behavior may differ.
+
+  For the purpose of salvaging message data, adjustment of a single position (either the key or encoded data) is sufficient, but can add extraneous bytes at the location of the error, though limited.
+ * Key position autoalignment may add extraneous bytes when the encoded data contains more byte sequences than intended.
+ * Encoded-data position autoalignment may add extraneous bytes when the encoded data contains less byte sequences than intended.
+ * Dual position autoalignment does not allow for extraneous bytes at the location of the error and may require special handling when the encoded data contains more bytes than intended. Extraneous bytes are limited to the end of the data because of differing lengths, but responsible bounds checking eliminates this possibility.
+
+  A list of how related programs handle alignment is listed below:
+ * _OtpXor_ - Supports only Key position autoalignment -2 to +2 bytes
+ * _OtpBot_ - Implements OtpXor
+ * _WebXor 1.1 and lower_ - Supports only Key position autoalignment -N to +N bytes adjustable tolerance
+ * _WebXor 2.0 and higher_ - Will support dual position autoalignment of adjustable tolerances.
+
+
+
+= Types of Data Errors==
+Generally in the way of lossy data and transcriptions, errors occur in several ways:
+ # The byte value was misinterpreted as a different value
+ # The byte value was misinterpreted as more than one value
+ # The byte was missed entirely
+ # The byte value was mistaken for part of another byte
+
+Because XOR decoding expects bytes from the key and encoded data to be aligned into pairs and decoded sequentially, Type 2,3&4 errors will corrupt further data.  Autoalignment targets these problems specifically.
+
+Type 1 errors will not change the number of bytes (length of data) and so do not mismatch/misalign or corrupt the decoded message.
+
+For the sake of simplicity below, examples will be shown below in hexadecimal where a correct decode results in all 0's (the byte values will match) rather than ANSI Text.  For example:
+|| *Key Data*        || 0A || 0B || 0C || 0D || 0E || 0F ||
+|| *Encoded Data*    || 0A || 0B || 0C || 0D || 0E || 0F ||
+|| *Decoded Message* || 00 || 00 || 00 || 00 || 00 || 00 ||
+
+==Type 2 Behavior==
+In Type 2 errors, there are more bytes in the encoded data than originally intended.
+|| *Key Data*        || 0A || 0B || 0C || 0D || 0E || 0F ||
+|| *Encoded Data*    || 0A || 0B || <font color="red">03</font> || 0C || 0D || 0E || 0F ||
+|| *Decoded Message* || 00 || 00 || 00 || 00 || 00 || 00 ||
