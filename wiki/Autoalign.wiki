@@ -21,9 +21,9 @@ See the specific "Types" sections for more detailed behavior.
 == In specific programs == 
 This document discusses best behaviors for autoalignment which include manipulating the current decoding byte position in both the key and encoded data within adjustable tolerances - however related program behavior may differ.
 
-For the purpose of salvaging message data, adjustment of the position for a single buffer (either the key or encoded data) through both advancement and reversing is sufficient. Depending on the implementation of these, extraneous bytes may be added or skipped at the location of the error.
+For the purpose of salvaging message data, adjustment of the position for a single buffer (either the key or encoded data) through both advancement and reversing is sufficient (-N to +M). Depending on the implementation of these, extraneous bytes may be added or skipped at the location of the error.
 
-For implementations which advance the position of either the key or encoded-data and do not reverse positions it is more likely that any extraneous bytes will appear at the end of the message than the middle - and responsible bounds checking can easily eliminate these.
+For implementations which advance both the position of either the key or encoded-data (0 to +N each) it is more likely that any extraneous bytes will appear at the end of the message than the middle - and responsible bounds checking can easily eliminate these.
 
   A list of how related programs handle alignment is listed below:
  * _OtpXor_ - Supports only Key position autoalignment -2 to +2 bytes with extraneous bytes at error locations.
