@@ -21,16 +21,15 @@ See the specific "Types" sections for more detailed behavior.
 == In specific programs == 
   This document discusses best behaviors for autoalignment which include manipulating the current decoding byte position in both the key and encoded data within adjustable tolerances - however related program behavior may differ.
 
-  For the purpose of salvaging message data, adjustment of a single position (either the key or encoded data) is sufficient, but can add extraneous bytes at the location of the error, though limited.
- * Key position autoalignment may add extraneous bytes when the encoded data contains more byte sequences than intended.
- * Encoded-data position autoalignment may add extraneous bytes when the encoded data contains less byte sequences than intended.
- * Dual position autoalignment does not allow for extraneous bytes at the location of the error and may require special handling when the encoded data contains more bytes than intended. Extraneous bytes are limited to the end of the data because of differing lengths, but responsible bounds checking eliminates this possibility.
+  For the purpose of salvaging message data, adjustment of the position for a single buffer (either the key or encoded data) through both advancement and reversing is sufficient. Depending on the implementation of these, extraneous bytes may be added or skipped at the location of the error.
+
+For implementations which advance the position of either the key or encoded-data and do not reverse positions it is more likely that any extraneous bytes will appear at the end of the message than the middle - and responsible bounds checking can easily eliminate these.
 
   A list of how related programs handle alignment is listed below:
- * _OtpXor_ - Supports only Key position autoalignment -2 to +2 bytes
+ * _OtpXor_ - Supports only Key position autoalignment -2 to +2 bytes with extraneous bytes at error locations.
  * _OtpBot_ - Implements OtpXor
- * _WebXor 1.1 and lower_ - Supports only Key position autoalignment -N to +N bytes adjustable tolerance
- * _WebXor 2.0 and higher_ - Will support dual position autoalignment of adjustable tolerances.
+ * _WebXor 1.1 and lower_ - Supports only Key position autoalignment -N to +N bytes adjustable tolerance and skips error bytes.
+ * _WebXor 2.0 and higher_ - Will support dual position autoalignment of adjustable tolerances.  Error-indicator-byte insertion may be implemented. 
 
 
 
@@ -89,4 +88,3 @@ By being able to detect the error at position 2, the rest of the message is easi
 || *Decoded Message*       || <font color="green">00 || <font color="green">00 ||    || <font color="green">00 || <font color="green">00 || <font color="green">00 ||
 
 Like in the Type 2 description, no behavior is defined here to indicate the position of the missing byte and is implementation-defined.
-
