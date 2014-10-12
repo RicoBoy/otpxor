@@ -84,11 +84,9 @@ In the example below, a person transcribing did not hear the byte "0C" in an aud
 By being able to detect the error at position 2, the rest of the message is easily salvaged by advancing the Key position to the next byte:
 || *Encoded-Data Position* ||  0 ||  1 ||  *2* ||  2 ||  3 ||  4 ||
 || *Key Alignment*         ||  0 ||  0 ||  *0* || +1 || +1 || +1 ||
-|| *Key Data*              || 0A || 0B || *0C* || 0D || 0E || 0F ||
-|| *Encoded Data*          || 0A || 0B || *0D* || 0D || 0E || 0F ||
+|| *Key Data*              || <font color="green">0A || <font color="green">0B || <font color="red">*0C* || <font color="green">0D || <font color="green">0E || <font color="green">0F ||
+|| *Encoded Data*          || <font color="green">0A || <font color="green">0B || <font color="red">*0D* || <font color="green">0D || <font color="green">0E || <font color="green">0F ||
 || *Decoded Message*       || <font color="green">00 || <font color="green">00 ||    || <font color="green">00 || <font color="green">00 || <font color="green">00 ||
 
 Like in the Type 2 description, no behavior is defined here to indicate the position of the missing byte and is implementation-defined.
-
-
 
