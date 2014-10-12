@@ -6,6 +6,8 @@
 
 *Autoalignment* is a feature presented in OtpXor, OtpBot and WebXor where the position is adjusted between the key and the encoded data to reduce the effects of lossy data and mistranscriptions on the rest of the message.  This particular feature only applies to decoded output of ANSI text.
 
+<wiki:toc max_depth="9" />
+
 = Error detection = 
 When a message decode is assumed to be in ANSI text, all of the byte values can be assumed to be in a certain byte value range.  This fact presents the ability to detect whether a decoded byte is error or not.
 
@@ -43,14 +45,50 @@ Because XOR decoding expects bytes from the key and encoded data to be aligned i
 
 Type 1 errors will not change the number of bytes (length of data) and so do not mismatch/misalign or corrupt the decoded message.
 
+To help explain the behavior of Autoalignment in each of these cases, examples are shown below.
 For the sake of simplicity below, examples will be shown below in hexadecimal where a correct decode results in all 0's (the byte values will match) rather than ANSI Text.  For example:
 || *Key Data*        || 0A || 0B || 0C || 0D || 0E || 0F ||
 || *Encoded Data*    || 0A || 0B || 0C || 0D || 0E || 0F ||
 || *Decoded Message* || 00 || 00 || 00 || 00 || 00 || 00 ||
 
 ==Type 2 Behavior==
-In Type 2 errors, there are more bytes in the encoded data than originally intended.
+In Type 2 errors, there are more bytes in the encoded data than originally intended by the author of the message.
 
-|| *Key Data*        || <font color="green">0A || 0B || 0C || 0D || 0E || 0F ||
-|| *Encoded Data*    || 0A || 0B || <font color="red">03</font> || <font color="orange">0C</font> || <font color="orange">0D</font> || <font color="orange">0E</font> || <font color="orange">0F</font> ||
-|| *Decoded Message* || 00 || 00 || 00 || 00 || 00 || 00 ||
+In the example below, the value 03 was added by mistranscription after 0B (positions 1 and 2, respectively). Despite the fact that the rest of the message was transcribed properly, when this was decoded, all further decoding after position 2 was corrupted.
+
+|| Position || 0 || 1 || 2 || 3 || 4 || 5 || 6 ||
+|| *Key Data*        || <font color="green">0A || <font color="green">0B || <font color="green">0C || <font color="green">0D || <font color="green">0E || <font color="green">0F ||
+|| *Encoded Data*    || <font color="green">0A || <font color="green">0B || <font color="red">03 || <font color="orange">0C || <font color="orange">0D || <font color="orange">0E || <font color="orange">0F ||
+|| *Decoded Message* || <font color="green">00 || <font color="green">00 || <font color="red">0F || <font color="red">01 || <font color="red">03 || <font color="red">01 || <font color="red">?? ||
+
+By detecting the error at position 2, the rest of the message is salvaged by advancing the encoded-data position by 1 at the error.
+
+See below, the extraneous byte is detected at Position 2, and the autoalignment skips to the next byte of the encoded-data to allow proper decoding. 
+|| *Key Position*          ||  0 ||  1 ||  *2* ||  2 ||  4 ||  5 ||  6 ||
+|| *Encoded Pos Alignment* ||  0 ||  0 ||  *0* || +1 || +1 || +1 || +1 ||
+|| *Key Data*              || 0A || 0B || *0C* || 0C || 0D || 0E || 0F ||
+|| *Encoded Data*          || <font color="green">0A || <font color="green">0B || <font color="red">*03* || <font color="green">0C || <font color="green">0D || <font color="green">0E || <font color="green">0F ||
+|| *Decoded Message*       || <font color="green">00 || <font color="green">00 ||    || <font color="green">00 || <font color="green">00 || <font color="green">00 || <font color="green">00 ||
+Note that this document does not define a behavior for handling the undecodable byte "03" in this example, and whether it is discarded (as in this example) or represented somehow is implementation-specific.
+
+== Type 3&4 behavior == 
+In Type 3&4 errors, there are less bytes in the encoded data than originally intended by the author of the message - data has been irrecoverably lost. However, the data that has not been lost can also suffer from corruption:
+
+In the example below, a person transcribing did not hear the byte "0C" in an audio recording and did not enter it. Running it through a normal XOR decode hopelessly scrambles all of the message after the single missed byte.
+|| *Position*        ||  0 ||  1 ||  2 ||  2 ||  4 ||  5 ||
+|| *Key Data*        || 0A || 0B || 0C || 0D || 0E || 0F ||
+|| *Encoded Data*    || <font color="green">0A || <font color="green">0B || <font color="orange">0D || <font color="orange">0E || <font color="orange">0F ||
+|| *Decoded Message* || <font color="green">00 || <font color="green">00 || <font color="red">01 || <font color="red">03 || <font color="red">01 || <font color="red">?? ||
+
+By being able to detect the error at position 2, the rest of the message is easily salvaged by advancing the key position to the next byte:
+|| *Encoded-Data Position* ||  0 ||  1 ||  *2* ||  2 ||  3 ||  4 ||
+|| *Key Alignment*         ||  0 ||  0 ||  *0* || +1 || +1 || +1 ||
+|| *Key Data*              || 0A || 0B || *0C* || 0D || 0E || 0F ||
+|| *Encoded Data*          || 0A || 0B || *0D* || 0D || 0E || 0F
+|| *Decoded Message*       || <font color="green">00 || <font color="green">00 ||    || <font color="green">00 || <font color="green">00 || <font color="green">00 ||
+Like in the Type 2 description, no behavior is defined here to indicate the position of the missing byte and is implementation-defined.
+
+
+
+
+
