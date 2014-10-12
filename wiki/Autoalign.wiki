@@ -2,7 +2,7 @@
 #labels Draft,Phase-Implementation,Featured
 
 = Introduction =
-   Normally, a keyfile and the encoded data are aligned so that a byte of each, sequentially, can be used to decode a message.  When there is a data missing or incorrect, using the normal sequence may lead to corruption of the output, rendering it unreadable.  Xor decoding with human-transcribed or lossy data can be a tedious task and there is a great potential for errors of this kind.
+Normally, a keyfile and the encoded data are aligned so that a byte of each, sequentially, can be used to decode a message.  When there is a data missing or incorrect, using the normal sequence may lead to corruption of the output, rendering it unreadable.  Xor decoding with human-transcribed or lossy data can be a tedious task and there is a great potential for errors of this kind.
 
 *Autoalignment* is a feature presented in OtpXor, OtpBot and WebXor where the position is adjusted between the key and the encoded data to reduce the effects of lossy data and mistranscriptions on the rest of the message.  This particular feature only applies to decoded output of ANSI text.
 
@@ -19,9 +19,9 @@ By testing single adjustments to the alignment (within tolerances) between the t
 See the specific "Types" sections for more detailed behavior.
 
 == In specific programs == 
-  This document discusses best behaviors for autoalignment which include manipulating the current decoding byte position in both the key and encoded data within adjustable tolerances - however related program behavior may differ.
+This document discusses best behaviors for autoalignment which include manipulating the current decoding byte position in both the key and encoded data within adjustable tolerances - however related program behavior may differ.
 
-  For the purpose of salvaging message data, adjustment of the position for a single buffer (either the key or encoded data) through both advancement and reversing is sufficient. Depending on the implementation of these, extraneous bytes may be added or skipped at the location of the error.
+For the purpose of salvaging message data, adjustment of the position for a single buffer (either the key or encoded data) through both advancement and reversing is sufficient. Depending on the implementation of these, extraneous bytes may be added or skipped at the location of the error.
 
 For implementations which advance the position of either the key or encoded-data and do not reverse positions it is more likely that any extraneous bytes will appear at the end of the message than the middle - and responsible bounds checking can easily eliminate these.
 
