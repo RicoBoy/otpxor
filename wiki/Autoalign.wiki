@@ -4,7 +4,7 @@
 = Introduction =
    Normally, a keyfile and the encoded data are aligned so that a byte of each, sequentially, can be used to decode a message.  When there is a data missing or incorrect, using the normal sequence may lead to corruption of the output, rendering it unreadable.  Xor decoding with human-transcribed or lossy data can be a tedious task and there is a great potential for errors of this kind.
 
-   *Autoalignment* is a feature presented in OtpXor, OtpBot and WebXor where the position is adjusted between the key and the encoded data to reduce the effects of lossy data and mistranscriptions on the rest of the message.  This particular feature only applies to decoded output of ANSI text.
+*Autoalignment* is a feature presented in OtpXor, OtpBot and WebXor where the position is adjusted between the key and the encoded data to reduce the effects of lossy data and mistranscriptions on the rest of the message.  This particular feature only applies to decoded output of ANSI text.
 
 = Error detection = 
 When a message decode is assumed to be in ANSI text, all of the byte values can be assumed to be in a certain byte value range.  This fact presents the ability to detect whether a decoded byte is error or not.
